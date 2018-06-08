@@ -7,6 +7,8 @@ OpenShift master servers.
 Wouldn't it be great if you could provide your developers and other people with a simple web interface they can visit that
 would allow them to set up a new account or change their password?  That's what this Git repo is for...
 
+![OpenShift user account creation through a web interface](ocp-users.png)
+
 # What you'll need
 
 In order to make changes to the `htpasswd` file that your OCP masters use, the file will need to be in a space that the
