@@ -10,17 +10,22 @@ Wouldn't it be great if you could provide your developers and other people with 
 would allow them to set up a new account or change their password?  That's what this Git repo is for...  I originally wrote
 it for my work at the CBC (Canadian Broadcasting Corporation) until we can transition over to our AD or LDAP.
 
-![OpenShift user account creation through a web interface](ocp-users.png)
+![OpenShift user account creation through a web interface](web-interface.png)
 
 # What you'll need
 
 In order to make changes to the `htpasswd` file that your OCP masters use, the file will need to be in a space that the
 containers on your application node(s) can also use.  For example and NFS mount.
 
-- Create a small NFS space, say 100MB or so.
-- In OpenShift, create a `persistentvolume` that will consume that NFS space.
-- Mount that NFS space on all of your masters.  This is where the `htpasswd` for your masters will eventually reside, so mount it to an applicable location.
-- Once you're all done, run the commands below to help with your setup.
+- Create a small NFS space, say 100MB or so
+- From your OpenShift master nodes, mount the disk and copy your `htpasswd` file into it
+- Update your `master-config.yaml` file to include the new location of your `htpasswd` file
+- In OpenShift, create a `persistentvolume` that will consume the same NFS space as your master nodes
+- Once you're all done, run the commands below to help with your setup
+
+
+![Architecture of the 'OpenShift User Accounts' application](ocp-users.png)
+
 
 # Preparation for getting set up
 
