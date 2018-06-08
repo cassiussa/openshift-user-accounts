@@ -1,0 +1,31 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: openshift-user-accounts
+  name: openshift-user-accounts
+spec:
+  failedBuildsHistoryLimit: 1
+  nodeSelector:
+    builder-node: 'true'
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'openshift-user-accounts:latest'
+  postCommit: {}
+  resources: {}
+  runPolicy: Serial
+  source:
+    git:
+      uri: 'https://github.com/cassiussa/openshift-user-accounts.git'
+    type: Git
+  strategy:
+    dockerStrategy:
+      from:
+        kind: 'DockerImage'
+        name: 'registry.access.redhat.com/rhel7:7.4'
+    type: Docker
+  successfulBuildsHistoryLimit: 2
+  triggers:
+    - type: ConfigChange
+

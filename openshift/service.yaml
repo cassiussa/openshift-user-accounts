@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    app: openshift-user-accounts
+  name: openshift-user-accounts
+spec:
+  ports:
+  - name: 8080-tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: openshift-user-accounts
+    deploymentconfig: openshift-user-accounts
+  sessionAffinity: None
+  type: ClusterIP

@@ -1,0 +1,307 @@
+#!/bin/bash
+
+############################################################
+#                                                          #
+#  This script will allow users to create their own OCP    #
+#  user account.  It also allows the user to update their  #
+#  password if their account already exists.               #
+#                                                          #
+#  Cassius John-Adams <cassius.s.adams@gmail.com> for the  #
+#  Canadian Broadcasting Corporation (CBC)                 #
+#                                                          #
+#  June 2018                                               #
+#                                                          #
+############################################################
+
+
+# ENDPOINT      : envirment variable populated by DeploymentConfig
+# HTPASSWD_FILE : envirment variable populated by DeploymentConfig
+# HTPASSWD_PATH : envirment variable populated by DeploymentConfig
+
+
+function groupFromConfigMap() {
+  OIFS=$IFS;
+  IFS="|";
+  OCP_GROUP=(${OCP_GROUPS});
+  PRETTY_NAME_GROUPS=(${PRETTY_NAME_GROUPS});
+  IFS=$OIFS;
+}
+
+# Store POST data
+function cgi_get_POST_vars() {
+  # Test the content type
+  [ "${CONTENT_TYPE}" != "application/x-www-form-urlencoded" ] && echo "Warning: it might make sense to use MIME type application/x-www-form-urlencoded!" 1>&2
+  # Make sure to save POST variables the first time
+  [ -z "${QUERY_STRING_POST}" -a "${REQUEST_METHOD}" = "POST" -a ! -z "${CONTENT_LENGTH}" ] && read -n ${CONTENT_LENGTH} QUERY_STRING_POST
+  return
+}
+
+# Decode urlencoded strings
+function cgi_decodevar() {
+  [ $# -ne 1 ] && return
+  local v t h
+  # replace all + with whitespace and append %%
+  t="${1//+/ }%%"
+  while [ ${#t} -gt 0 -a "${t}" != "%" ]; do
+  v="${v}${t%%\%*}" # digest up to the first %
+  t="${t#*%}" # remove digested part
+  # decode if there is anything to decode and if not at end of string
+  if [ ${#t} -gt 0 -a "${t}" != "%" ]; then
+    h=${t:0:2} # save first two chars
+    t="${t:2}" # remove these
+     v="${v}"`echo -e \\\\x${h}` # convert hex to special char
+  fi
+  done
+  # return decoded string
+  echo "${v}"
+  return
+}
+
+# Function to get variables from http requests
+# usage: cgi_getvars method varname1 [.. varnameN]
+# method is either GET or POST or BOTH
+# the magic varible name ALL gets everything
+function cgi_getvars() {
+  [ $# -lt 2 ] && return
+  local q p k v s
+  # get query
+  case $1 in
+  GET)
+    [ ! -z "${QUERY_STRING}" ] && q="${QUERY_STRING}&"
+    ;;
+  POST)
+    cgi_get_POST_vars
+    [ ! -z "${QUERY_STRING_POST}" ] && q="${QUERY_STRING_POST}&"
+    ;;
+  BOTH)
+    [ ! -z "${QUERY_STRING}" ] && q="${QUERY_STRING}&"
+    cgi_get_POST_vars
+    [ ! -z "${QUERY_STRING_POST}" ] && q="${q}${QUERY_STRING_POST}&"
+    ;;
+  esac
+  shift
+  s=" $* "
+  # parse the query data
+  while [ ! -z "$q" ]; do
+  p="${q%%&*}"  # get first part of query string
+  k="${p%%=*}"  # get the key (variable name) from it
+  v="${p#*=}"   # get the value from it
+  q="${q#$p&*}" # strip first part from query string
+  # decode and evaluate var if requested
+  [ "$1" = "ALL" -o "${s/ $k /}" != "$s" ] && \
+    eval "$k=\"`cgi_decodevar \"$v\"`\""
+  done
+  return
+}
+
+function addUserToGroup() {
+  # First get the group json so we can update and return it in a follow-up curl
+  CURRENT_GROUP=$(curl -k -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' https://${ENDPOINT}/apis/user.openshift.io/v1/groups/${group})
+  # Update the the object json
+  CURRENT_GROUP=${CURRENT_GROUP::-6}
+  NEW_GROUP="${CURRENT_GROUP}, \"${username}\" ] } "
+  
+  # Perform a follow-up curl to perform the addition to the group
+  $(curl --silent -k -X PUT -d @- -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/apis/user.openshift.io/v1/groups/${group} <<EOF
+${NEW_GROUP}
+EOF
+)
+  sleep 2 
+  echo "Success...<br />"
+}
+  
+  
+function createUser() {
+  # Create the user in the htpasswd field
+  htpasswd -b ${HTPASSWD_PATH}${HTPASSWD_FILE} ${username} ${password} || echo "Unable to set up password in the ${HTPASSWD_PATH}${HTPASSWD_FILE} file" 1>&2
+  
+  # Create the user in OCP
+  $(curl -k -X POST -d @- --silent -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/oapi/v1/users <<EOF
+{
+  "kind": "User",
+  "apiVersion": "v1",
+  "fullName": "${fullname}",
+  "metadata": {
+        "name": "${username}"
+  }
+}
+EOF
+)
+  sleep 2
+  echo "Success...<br />Adding user to the ${group} group..."
+  # User should now be created.  Lets add them to the selected group
+  addUserToGroup
+  echo "<br /><br /><h3>Password has been set for ${username} and you have been added to the ${group} group.<br /><br />You may now log into <a href="https://${ENDPOINT}/console/">${ENDPOINT}/console/</a></h3><br /><br />"
+}
+  
+  
+function updateUser() {
+  #echo "htpasswd -b ${HTPASSWD_PATH}${HTPASSWD_FILE} ${username} ${newPassword}<br />"
+  echo "Updating password...."
+  htpasswd -b ${HTPASSWD_PATH}${HTPASSWD_FILE} ${username} ${newPassword} || echo "Unable to set up password in the ${HTPASSWD_PATH}${HTPASSWD_FILE} file" 1>&2
+  sleep 2
+  echo "Success..."
+  echo "<br /><br /><h3>Password has been updated for '${username}'.<br /><br />You may now log into <a href="https://${ENDPOINT}/console/">${ENDPOINT}/console/</a></h3><br /><br />"
+}
+
+function groupFromConfigMap() {
+  OIFS=$IFS;
+  IFS="|";
+  OCP_GROUP=(${OCP_GROUPS});
+  PRETTY_NAME_GROUPS=(${PRETTY_NAME_GROUPS});
+  IFS=$OIFS;
+}
+
+
+echo "Content-type: text/html"
+echo ""
+echo "<!DOCTYPE html>"
+
+echo "<html class=\"login-pf\"><head><title>OCP User Manager</title>"
+cat style.css
+echo "</head>"
+echo "<body>"
+echo "<div class=\"container\">"
+echo "<div class=\"row\">"
+echo "<h1>Welcome to the OCP User Manager (beta)</h1>"
+echo "Note: Please submit bugs to cassius.john-adams@cbc.ca<br /><br />"
+echo "This is where you can create a new user for OpenShift DEV/QA or update your existing password.<br /><br />"
+echo "- To create a new user, fill out all 4 fields as expected<br />"
+echo "- To change your password, just fill out your username and your current password and hit Submit.<br />"
+echo "- To change your role ("
+
+# Get an array of group names and pretty names from the ConfigMap
+groupFromConfigMap
+
+for ((i=0; i<${#OCP_GROUP[@]}; ++i)); do
+  if (( i < (( ${#OCP_GROUP[@]} - 1 )) )); then
+   echo "${PRETTY_NAME_GROUPS[$i]}, "
+  else
+   echo "${PRETTY_NAME_GROUPS[$i]}"
+  fi
+done
+echo "), please contact ${OPERATIONS}<br /><br /><br />"
+
+
+
+# Register all GET and POST variables based on the name given to their HTML form elements
+cgi_getvars BOTH ALL
+
+ocp_users_token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+
+# See if we should be updating an existing user's password rather than adding a new user all together
+if [[ "${done}" == "true" ]]; then
+  updateUser
+fi
+
+
+  
+  # We haven't hit submit, so present the main form page
+if [ -z "${QUERY_STRING_POST}" ]; then
+  
+  echo "<div class=\"col-sm-7 col-md-6 col-lg-5 login\">"
+  echo "<form class=\"form-horizontal\" role=\"form\" action=\"/\" method=\"post\">"
+  
+
+  echo "<div class=\"form-group\">"
+  echo "<label for=\"fullname\" class=\"col-sm-6 col-md-6 control-label\">Enter your full name</label>"
+  echo "<div class=\"col-sm-10 col-md-10\">"
+  echo "<input type=\"text\" name=\"fullname\" class=\"form-control\" id=\"fullname\" placeholder=\"\" tabindex=\"1\" autofocus=\"autofocus\"></input><br />"
+  echo "</div></div>"
+
+  echo "<div class=\"form-group\">"
+  echo "<label for=\"username\" class=\"col-sm-6 col-md-6 control-label\">New or existing username</label>"
+  echo "<div class=\"col-sm-10 col-md-10\">"
+  echo "<input type=\"text\" name=\"username\" class=\"form-control\" id=\"username\" placeholder=\"\" tabindex=\"1\" autofocus=\"autofocus\" ></input><br />"
+  echo "</div></div>"
+  
+  echo "<div class=\"form-group\">"
+  echo "<label for=\"password\" class=\"col-sm-6 col-md-6 control-label\">New or existing password</label>"
+  echo "<div class=\"col-sm-10 col-md-10\">"
+  echo "<input type=\"password\" name=\"password\" class=\"form-control\" id=\"password\" placeholder=\"\" tabindex=\"1\" autofocus=\"autofocus\" ></input><br />"
+  echo "</div></div>"
+
+  echo "<div class=\"form-group\">"
+  echo "<label for=\"group\" class=\"col-sm-6 col-md-6 control-label\">I am a </label>"
+  echo "<div class=\"col-sm-10 col-md-10\">"
+  echo "<select name=\"group\"  class=\"form-control\" id=\"group\" placeholder=\"\" tabindex=\"1\" autofocus=\"autofocus\">"
+  for ((i=0; i<${#OCP_GROUP[@]}; ++i)); do
+    echo "<option value=\"${OCP_GROUP[$i]}\">${PRETTY_NAME_GROUPS[$i]}</option>"
+  done
+  echo "</select><br />"
+  echo "</div></div>"
+
+  echo "<div class=\"form-group\">"
+  echo "<div class=\"col-xs-8 col-sm-offset-2 col-sm-6 col-md-offset-2 col-md-6\">"
+  echo ""
+  echo "</div>"
+  echo "<div class=\"col-xs-4 col-sm-4 col-md-4 submit\">"
+  echo "<button type=\"submit\" class=\"btn btn-primary btn-lg\" tabindex=\"4\">Submit</button>"
+  #echo "<input type=\"submit\" name=\"sub\" value=\"Submit\"></input>"
+  echo "</div></div>"
+  echo "</form>"
+  
+  echo "</div>"
+
+# submit was clicked
+else
+
+  # Cleanup the username and ensure it is lower case
+  username=${username//_/}
+  username=${username// /_}
+  username=${username//[^a-zA-Z_]/}
+  username=${username,,}
+  
+  # Test to see if the user is already in htpasswd and if their password matches
+  HTPASSWD_RESPONSE=$(htpasswd -vb ${HTPASSWD_PATH}${HTPASSWD_FILE} ${username} ${password} 2>&1)
+
+  if [[ "${HTPASSWD_RESPONSE}" == "User ${username} not found" ]]; then
+    # User isn't found, so we should create it
+    echo "Creating user... "
+    createUser
+  elif [[ "${HTPASSWD_RESPONSE}" == "password verification failed" ]]; then
+    # Existing user but password failed
+    echo "<h3 style=\"color:#FF0000\">Password failed for existing user (${username}).  <a href="/">Please try again</a>.</h3><br />"
+    QUERY_STRING_POST=""
+    elif [[ "${HTPASSWD_RESPONSE}" == "Password for user ${username} correct." && -z "${newPassword}"  ]]; then
+    # User submitted an existing username and password
+    # so we should allow a password change here.
+    # Present the password-change HTML form
+    echo "<h1>Update your password</h1><br />"
+
+    echo "<div class=\"col-sm-7 col-md-6 col-lg-5 login\">"
+    echo "<form class=\"form-horizontal\" role=\"form\" action=\"/\" method=\"post\">"
+
+    echo "<div class=\"form-group\">"
+    echo "<label for=\"newPassword\" class=\"col-sm-6 col-md-6 control-label\">Enter your new password</label>"
+    echo "<div class=\"col-sm-10 col-md-10\">"
+    echo "<input type=\"password\" name=\"newPassword\" class=\"form-control\" id=\"newPassword\" placeholder=\"\" tabindex=\"1\" autofocus=\"autofocus\"></input><br />"
+    echo "<input type=\"hidden\" name=\"done\" value=\"true\"></input>"
+    echo "<input type=\"hidden\" name=\"username\" value=\"${username}\"></input>"
+    echo "</div></div>"
+
+    echo "<div class=\"form-group\">"
+    echo "<div class=\"col-xs-8 col-sm-offset-2 col-sm-6 col-md-offset-2 col-md-6\">"
+    echo ""
+    echo "</div>"
+    echo "<div class=\"col-xs-4 col-sm-4 col-md-4 submit\">"
+    echo "<button type=\"submit\" class=\"btn btn-primary btn-lg\" tabindex=\"4\">Submit</button>"
+    echo "</div></div>"
+    echo "</form>"
+
+    echo "</div>"
+  elif [ -n "${newPassword}" ]; then
+    echo ""
+  else
+    echo "An unknown error has occurred.  Please contact MTIS if you continue to see this error<br />"
+    echo "Response was...<br />${HTPASSWD_RESPONSE}<br /><br />"
+  fi
+
+  echo "<br /><br />"
+fi
+
+
+echo "</div>"
+echo "</div>"
+echo "</body></html>"
+

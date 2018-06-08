@@ -1,0 +1,61 @@
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: openshift-user-accounts
+  name: openshift-user-accounts
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    app: openshift-user-accounts
+    deploymentconfig: openshift-user-accounts
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      annotations:
+        openshift.io/generated-by: OpenShiftNewApp
+      creationTimestamp: null
+      labels:
+        app: openshift-user-accounts
+        deploymentconfig: openshift-user-accounts
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: ocp-groups
+          image: 'openshift-user-accounts:latest'
+          imagePullPolicy: Always
+          name: openshift-user-accounts
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /tmp/accounts
+              name: openshift-user-accounts
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: openshift-user-accounts
+      serviceAccountName: openshift-user-accounts
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: openshift-user-accounts
+          persistentVolumeClaim:
+            claimName: openshift-user-accounts
+  test: false
+  triggers:
+    - type: ConfigChange
