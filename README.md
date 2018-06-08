@@ -22,11 +22,14 @@ containers on your application node(s) can also use.  For example and NFS mount.
 First things first, clone this repository to a location that you have the `oc` command running.  Then do these commands.
 
 ```
-# ex OCP_MASTER="openshift.mydomain.com:8443"
-OCP_MASTER=<enter your OpenShift external master url here, including port>
+OCP_MASTER=<your.openshift.domain.com:8443>
 
-sed -i '' 's/your-ocp-master-url/${OCP_MASTER}/g' openshift/configmap.yaml
-# Update the values for the OCP_GROUPS, PRETTY_NAME_GROUPS, and OPERATIONS to whatever you need
+# NOTE: I'm using OSX so I did...
+#    sed -i '' "s/old/new/g"
+# ...however most Linux machines don't require the double-single-quotes '' in the command
+sed -i '' "s/your-ocp-master-url/${OCP_MASTER}/g" openshift/configmap.yaml
+
+# Update the values for OCP_GROUPS, PRETTY_NAME_GROUPS, and OPERATIONS to whatever you need
 # - OCP_GROUPS is the names of the already-existing groups you have in OpenShift
 # - PRETTY_NAME_GROUPS is what you'd like the web interface to display
 # - OPERATIONS is the name of the team that owns the OpenShift environment
@@ -34,11 +37,11 @@ vi openshift/configmap.yaml
 
 # ex: OCP_PV_NAME="openshift-users"
 OCP_PV_NAME=<the name of the persistentvolume you created earlier>
-sed -i '' 's/your-pv-name/${OCP_PV_NAME}/g' openshift/pvc.yaml
+sed -i '' "s/your-pv-name/${OCP_PV_NAME}/g" openshift/pvc.yaml
 
 # ex: OCP_APP_HOSTNAME="accounts.openshift.mydomain.com"
 OCP_APP_HOSTNAME=<enter the domain you want for the web interface>
-sed -i '' 's/your-host-name/${OCP_APP_HOSTNAME}/g' openshift/pvc.yaml
+sed -i '' "s/your-host-name/${OCP_APP_HOSTNAME}/g" openshift/pvc.yaml
 
 # Either create a new Project or move into an existing one
 oc new-project openshift-user-accounts
