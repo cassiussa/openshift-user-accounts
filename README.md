@@ -4,8 +4,11 @@ One of the areas that OpenShift is lacking is in easy setup of new users when us
 OpenShift user authentication, the user initially needs to set their password using the `htpasswd` command line tool on the
 OpenShift master servers.
 
+That kinda sucks.
+
 Wouldn't it be great if you could provide your developers and other people with a simple web interface they can visit that
-would allow them to set up a new account or change their password?  That's what this Git repo is for...
+would allow them to set up a new account or change their password?  That's what this Git repo is for...  I originally wrote
+it for my work at the CBC (Canadian Broadcasting Corporation) until we can transition over to our AD or LDAP.
 
 ![OpenShift user account creation through a web interface](ocp-users.png)
 
@@ -67,4 +70,11 @@ _But can't anyone with access add their own account?_
 
 Yes they can.  Which is why you should secure your `route`'s url.  It's also assumed that you trust the other people on your network, such as
 developers and PMs, to create their own accounts appropriately.
+
+# Bugs and other issues
+
+It should be noted that I haven't spent much, or any time really, on ensuring that the user input is cleaned up in case of hack attempts.
+So I offer no guarantees to the quality or functionality of this code.  USE AT YOUR OWN RISK.
+
+If you find any bugs, please feel free to fork and put in a PR, or submit an Issue for it.
 
