@@ -102,10 +102,10 @@ function addUserToGroup() {
   NEW_GROUP="${CURRENT_GROUP}, \"${username}\" ] } "
   
   # Perform a follow-up curl to perform the addition to the group
-  $(curl --silent -k -X PUT -d @- -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/apis/user.openshift.io/v1/groups/${group} <<EOF
+  curl --silent -k -X PUT -d @- -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/apis/user.openshift.io/v1/groups/${group} > /dev/null <<EOF
 ${NEW_GROUP}
 EOF
-)
+
   sleep 2 
   echo "Success...<br />"
 }
@@ -116,7 +116,7 @@ function createUser() {
   htpasswd -b ${HTPASSWD_PATH}${HTPASSWD_FILE} ${username} ${password} || echo "Unable to set up password in the ${HTPASSWD_PATH}${HTPASSWD_FILE} file" 1>&2
   
   # Create the user in OCP
-  $(curl -k -X POST -d @- --silent -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/oapi/v1/users <<EOF
+  curl -k -X POST -d @- --silent -H "Authorization: Bearer ${ocp_users_token}" -H 'Accept: application/json' -H 'Content-Type: application/json' https://${ENDPOINT}/oapi/v1/users > /dev/null <<EOF
 {
   "kind": "User",
   "apiVersion": "v1",
@@ -126,7 +126,7 @@ function createUser() {
   }
 }
 EOF
-)
+
   sleep 2
   echo "Success...<br />Adding user to the ${group} group..."
   # User should now be created.  Lets add them to the selected group
