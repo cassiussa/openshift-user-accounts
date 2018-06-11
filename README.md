@@ -55,6 +55,10 @@ sed -i '' "s/your-host-name/${OCP_APP_HOSTNAME}/g" openshift/pvc.yaml
 
 # Either create a new Project or move into an existing one
 oc new-project openshift-user-accounts
+# Add the service account
+oc create sa ocp-accounts
+# Give it cluster-admin - Note: you may wish to consider a lower privilege, but in my case it's fine
+oc adm policy add-cluster-role-to-user cluster-admin --serviceaccount=ocp-accounts
 # Create the object definitions
 oc create -f openshift
 ```
